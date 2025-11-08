@@ -8,6 +8,7 @@
 #define ERR_HANDLE(EXPR) \
   do if (!(EXPR)) { perror(NULL); exit(EXIT_FAILURE); } while (0)
 
+#ifdef unused
 static int rand_choice(int n, int probs[]) {
   int prob_sum = 0;
   int i;
@@ -22,6 +23,7 @@ static int rand_choice(int n, int probs[]) {
       return i;
   assert(0);
 }
+#endif // unused
 
 static uint32_t rand32() {
   uint32_t ret = 0;
@@ -61,13 +63,6 @@ static int (*rand_permutation(int n))[] {
   
   return ret;
 }
-
-//enum mem_block_type { PROC, OBJ, TGT, MEM_BLOCK_TYPE_MAX };
-//
-//struct mem_block {
-//  enum mem_block_type block_type;
-//  int index;
-//};
 
 int main(int argc, char *argv[]) {
   int opt;
