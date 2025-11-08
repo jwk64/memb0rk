@@ -13,6 +13,7 @@ struct processor {
 
 struct objective {
   uint32_t target;
+  uint32_t src;
   uint32_t len;
   uint32_t progress;
   char data[];
@@ -25,6 +26,11 @@ extern struct objective (*objs)[];
 extern int procs_len;
 extern int objs_len;
 extern uint32_t mem_size;
+
+extern void mem_write(uint32_t address, uint32_t value);
+extern int game_step();
+extern int game(long long max_steps);
+
 
 enum action {
   ACT_GET,

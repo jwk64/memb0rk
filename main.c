@@ -23,30 +23,51 @@ static int rand_choice(int n, int probs[]) {
   assert(0);
 }
 
+static uint32_t rand32() {
+  uint32_t ret = 0;
+
+  // rand() is only guarunteed to generate numbers up to 2^15.
+
+  for (int i=0; i<4; i++)
+    ret |= (rand() & 255) << (8*i);
+
+  return ret;
+}
+
+int comp_uint32 (const void *ap, const void *bp) {
+    uint32_t a = *((uint32_t *) ap);
+    uint32_t b = *((uint32_t *) bp);
+    if (a > b)
+      return  1;
+    if (a < b)
+      return -1;
+    return 0;
+}
+
 static int (*rand_permutation(int n))[] {
   int (*ret)[];
   int i, j, swap;
   ERR_HANDLE(ret = calloc(n, sizeof(int)));
 
-  for(i=0; i++; i<n)
+  for(i=0; i<n; i++)
     (*ret)[i] = i;
 
-  for(i=0; i++; i<n) {
+  for(i=0; i<n; i++) {
     j = i + (rand() % (n - i));
     swap = (*ret)[i];
     (*ret)[i] = (*ret)[j];
     swap = (*ret)[j] = swap;
   }
-
+  
   return ret;
 }
 
-enum mem_block_type { PROC, OBJ, TGT, MEM_BLOCK_TYPE_MAX };
-
-struct mem_block {
-  enum mem_block_type block_type;
-  int index;
-};
+//enum mem_block_type { PROC, OBJ, TGT, MEM_BLOCK_TYPE_MAX };
+//
+//struct mem_block {
+//  enum mem_block_type block_type;
+//  int index;
+//};
 
 int main(int argc, char *argv[]) {
   int opt;
@@ -55,6 +76,7 @@ int main(int argc, char *argv[]) {
   mem_size = 16777216; // = 16M = 16*1024*1024
   int rand_seed = time(NULL);
 
+  // Parse options:
   while((opt = getopt(argc, argv, ":hm:t:d:s:")) != -1) {
     switch(opt) {
     case 'h':
@@ -119,10 +141,13 @@ int main(int argc, char *argv[]) {
   srand(rand_seed);
 
   long fsize;
+  // The following represents the total amount of mem to be used by programs,
+  // target/source obj data etc.
   long mtotal = data_size * (1 /* for target buffer */
                              + (argc-optind)/team_size);
   FILE *f;
 
+  // Determining program lengths:
   for(int i = optind; i < argc; i++) {
     ERR_HANDLE(f = fopen(argv[i], "r"));
 
@@ -131,69 +156,103 @@ int main(int argc, char *argv[]) {
 
     printf("File %s is %d bytes\n", argv[i], fsize);
 
-    mtotal += fsize;
+    mtotal += fsize + (3 * WORD_LEN /* for the 3 arguments that must be passed
+                                       to the program for the memcpy */);
     fclose(f);
   }
 
   printf("Total bytes to allocate: %d\n", mtotal);
-  uint32_t target = 123; //todo
 
-  /*
-    TODO: loop through procs[0...procs_len], setting (*procs)[i].reg[REG_PC]
-
-    loop, choose at random one of target, obj[i/teams].data, proc[i].pc
-
-   */
-
+  uint32_t gaps_total = mem_size - mtotal;
   int n_blocks = procs_len + objs_len + 1 /* (for target region) */;
+
+  // Generate randomised gaps between allocated blocks:
+  uint32_t (*cuts)[];
+  ERR_HANDLE(cuts = calloc(n_blocks-1, sizeof(uint32_t)));
+  for (int i=0; i<n_blocks-1; i++)
+    (*cuts)[i] = rand32() % (gaps_total);
+
+  qsort(cuts, n_blocks-1, sizeof(uint32_t), &comp_uint32);
+
+  // Randomise location of first block:
+  uint32_t cursor = rand32() % mem_size;
+
+  // Randomise order of blocks:
   int (*permutation)[] = rand_permutation(n_blocks);
 
-  struct mem_block (*blocks)[];
-  ERR_HANDLE(blocks = calloc(n_blocks, sizeof(struct mem_block)));
-
-  int block_index_index = 0;
-  for (enum mem_block_type t = 0; t < MEM_BLOCK_TYPE_MAX; t++)
-    for (int i=0; i < (
-                       t == PROC ? procs_len
-                       : t == OBJ ? objs_len
-                       : /* TGT */ 1
-                       ); i++)
-      {
-        (*blocks)[(*permutation)[block_index_index]].block_type = t;
-        (*blocks)[(*permutation)[block_index_index]].index = i;
-        block_index_index++;
-    }
-
-  // We now have a randomly ordered array (*blocks) of structs representing
-  // loads to be done.
-  
-  int cursor = 0;
-  int unalloc_remain = mem_size - mtotal;
-
   for (int i=0; i<n_blocks; i++) {
-    // TODO: Load thing (switch block_type, weighted random cursor incr)
-  }
-  
-  for(int i = 0; optind < argc; optind++) {
-    if (i % team_size == 0) {
-      // setup obj:
-      (*objs)[i/team_size].target = target;
-      (*objs)[i/team_size].len = data_size;
-      /* TODO:
-      randomise((*objs)[i/team_size].data, data_size);
-      compute_obj_progress((*objs)[i/team_size].data);
-      */
+    int j = (*permutation)[i];
+
+    // Select location
+    if (i==1)
+      cursor += (*cuts)[0];
+
+    else if (i>1)
+      // No need to %mem_size here, since that'll need to be done anyway on load
+      // (just because first address is in range doesn't mean we won't
+      // overflow):
+      cursor += (*cuts)[i-1] - (*cuts)[i-2];
+
+    if (j < procs_len) {
+      // alloc prog j
+      cursor += 3 * WORD_LEN; // space for arguments
+
+      (*procs)[j].reg[REG_PC] = cursor;
+      
+      ERR_HANDLE(f = fopen(argv[optind + j], "r"));
+      while (!feof(f)) {
+        (*memory)[cursor % mem_size] = getc(f);
+        cursor++;
+      }
+
+      fclose(f);
     }
-    ERR_HANDLE(f = fopen(argv[optind], "r"));
+    else if ((j -= procs_len) < objs_len) {
+      // alloc src j
 
-    /* TODO: Load from f into random location in memory. Populate proc struct,
-     * including pointing PC at program load location.
-     */
+      (*objs)[i].src = cursor;
+      
+      // generating random source data:
+      for (int k=0; k<data_size; k++) {
+        (*memory)[cursor % mem_size]
+          = (*objs)[i].data[k]
+          = rand();
+        cursor++;
+      }
+    }
+    else {
+      assert((j -= objs_len) == 0);
+      // alloc tgt
 
-    i++;
+      // set target pointer (and len while we're at it) in all objs
+      for (int k = 0; k < objs_len; k++) {
+        (*objs)[k].target = cursor;
+        (*objs)[k].len = data_size;
+      }
+    }
   }
 
-  // TODO: start game loop
-  int probs[] = { 1, 1, 3 };
-  printf("Rand: %i\n", rand_choice(3, probs));
+  free(cuts);
+  free(permutation);
+
+  // Write in arguments for programs:
+  for (int i = 0; i < procs_len; i++) {
+    cursor = (*procs)[i].reg[REG_PC] -WORD_LEN * 3;
+    mem_write(cursor, (*objs)[i/team_size].target);
+    cursor += WORD_LEN;
+    mem_write(cursor, (*objs)[i/team_size].src);
+    cursor += WORD_LEN;
+    mem_write(cursor, (*objs)[i/team_size].len);
+  }
+
+  long long max_steps = 1000000; //TODO
+  printf("Starting game\n");
+  int result = game(max_steps);
+  printf("Finished game\n");
+
+  if (result == -1)
+    printf("No winners after %i steps\n", max_steps);
+  
+  else for (int i = 0; i < team_size; i++)
+    printf("Winner: %s\n", argv[optind + result * team_size + i]);
 }

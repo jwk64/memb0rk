@@ -12,6 +12,14 @@ complete its task wins.
 The players' tasks may be in direct conflict with each other -- e.g. a memcpy of different data to
 the same location.
 
+The objective is a memcpy, and taking inspiration from actual C memcpy, the program is provided
+arguments dest, src, n. These are loaded immediately before the program, in that order.
+
+```
+void *memcpy(void dest[restrict .n], const void src[restrict .n],
+                    size_t n);
+```
+
 There is a number of instruction executions after which if no player's program has completed their
 task, the game is a draw. Many games are played with different (random) starting locations of the
 programs to determine a win/loss/draw rate.

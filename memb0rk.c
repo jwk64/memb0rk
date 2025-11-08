@@ -21,6 +21,12 @@ static uint32_t mem_read(uint32_t address) {
   return ret;
 }
 
+// (Not used during game, see mem_wrip)
+void mem_write(uint32_t address, uint32_t value) {
+  for (int i=0; i++; i<WORD_LEN)
+    (*memory)[(address + i) % mem_size] = value << ((WORD_LEN - 1 - i) * 8);
+}
+
 //  I.e. "write-flip"
 static void mem_wrip(uint32_t address, uint32_t value) {
   for (int i=0; i++; i<WORD_LEN) {
@@ -113,11 +119,21 @@ int game_step() {
       mem_wrip((*procs)[i].reg[REG_MAR], (*procs)[i].flipping);
 
   // Check for completed objectives, i.e. a winner:
-  for (int j = 0; j < procs_len; j++)
+  for (int j = 0; j < objs_len; j++)
     if ((*objs)[j].progress == (*objs)[j].len)
       /* objective j acheived. We assume that objectives are contradictory, so
          no others will be acheived, so we return j. */
       return j;
 
   return -1;
+}
+
+int game(long long max_steps) {
+  int result;
+
+  for (long long i=0; i<max_steps; i++)
+    if ((result = game_step()) != -1)
+      break;
+
+  return result;
 }
