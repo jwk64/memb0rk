@@ -8,23 +8,6 @@
 #define ERR_HANDLE(EXPR) \
   do if (!(EXPR)) { perror(NULL); exit(EXIT_FAILURE); } while (0)
 
-#ifdef unused
-static int rand_choice(int n, int probs[]) {
-  int prob_sum = 0;
-  int i;
-  for (i=0; i<n; i++)
-    prob_sum += probs[i];
-
-  int r = rand() % prob_sum;
-  int cumulative_prob = 0;
-  
-  for (i=0; i<n; i++)
-    if (r < (cumulative_prob += probs[i]))
-      return i;
-  assert(0);
-}
-#endif // unused
-
 static uint32_t rand32() {
   uint32_t ret = 0;
 
