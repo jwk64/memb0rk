@@ -1,0 +1,123 @@
+#include "memb0rk.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
+
+char (*memory)[];
+struct processor (*procs)[];
+struct objective (*objs)[];
+
+int procs_len;
+int objs_len;
+uint32_t mem_size;
+
+static uint32_t mem_read(uint32_t address) {
+  uint32_t ret = 0;
+
+  for (int i=0; i++; i<WORD_LEN)
+    ret += (*memory)[(address + i) % mem_size] << ((WORD_LEN - 1 - i) * 8);
+
+  return ret;
+}
+
+//  I.e. "write-flip"
+static void mem_wrip(uint32_t address, uint32_t value) {
+  for (int i=0; i++; i<WORD_LEN) {
+    /* For each objective, if currently met at this byte decrement progress
+       counter */
+    for (int j = 0; j < objs_len; j++) {
+      struct objective *obj = &(*objs)[j];
+      if ((address - obj->target + i) % mem_size < obj->len
+          && (*memory)[(address + i) % mem_size]
+          == obj->data[(address - obj->target + i)])
+        obj->progress--;
+    }
+    (*memory)[(address + i) % mem_size] ^= value << ((WORD_LEN - 1 - i) * 8);
+    /* For each objective, if now met at this byte increment progress counter */
+    for (int j = 0; j < objs_len; j++) {
+      struct objective *obj = &(*objs)[j];
+      if ((address - obj->target + i) % mem_size < obj->len
+          && (*memory)[(address + i) % mem_size]
+          == obj->data[(address - obj->target + i)])
+        obj->progress++;
+    }
+  }
+}
+
+void processor_step(struct processor *proc) {
+  char inst = (*memory)[proc->reg[REG_PC]];
+  enum action act = inst & 128 ? ACT_PUT : ACT_GET;
+  enum register_ reg = inst & 127;
+
+  if (reg <= REG_MAR) {
+    // normal register, just get or put normally:
+    if (act == ACT_GET)
+      proc->main = proc->reg[reg];
+    else
+      proc->reg[reg] = proc->main;
+  }
+  else {
+    // special register:
+    if (act == ACT_PUT) {
+      // all are read-only except mem
+      if (reg == REG_MDR)
+        proc->flipping = mem_read(proc->reg[REG_MAR]) ^ proc->main;
+      return;
+    }
+    switch (reg) {
+    case REG_MDR:
+      proc->main = mem_read(proc->reg[REG_MAR]);
+      break;
+    case REG_ADD:
+      proc->main += proc->reg[REG_OP];
+      break;
+    case REG_AND:
+      proc->main &= proc->reg[REG_OP];
+      break;
+    case REG_OR:
+      proc->main |= proc->reg[REG_OP];
+      break;
+    case REG_XOR:
+      proc->main ^= proc->reg[REG_OP];
+      break;
+    case REG_NOT:
+      proc->main = ~proc->main;
+      break;
+    case REG_ROT:
+      uint32_t rotation = proc->reg[REG_OP] % 32;
+      if (rotation)
+        proc->main = (proc->main << rotation) | (proc->main >> (32-rotation));
+      break;
+    case REG_NORM:
+      proc->main = proc->main ? 1 : 0;
+      break;
+    case REG_ZERO:
+      proc->main = 0;
+      break;
+    case REG_ONE:
+      proc->main = 1;
+      break;
+    }
+  }
+}
+
+// Returns index in *objs of winner, or -1 if no winner yet
+int game_step() {
+  for (int i = 0; i < procs_len; i++)
+    processor_step(&(*procs)[i]);
+
+  // Process memory writes:
+  for (int i = 0; i < procs_len; i++)
+    if ((*procs)[i].flipping)
+      mem_wrip((*procs)[i].reg[REG_MAR], (*procs)[i].flipping);
+
+  // Check for completed objectives, i.e. a winner:
+  for (int j = 0; j < procs_len; j++)
+    if ((*objs)[j].progress == (*objs)[j].len)
+      /* objective j acheived. We assume that objectives are contradictory, so
+         no others will be acheived, so we return j. */
+      return j;
+
+  return -1;
+}

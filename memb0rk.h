@@ -1,0 +1,65 @@
+#include <stdint.h>
+
+//#define MEM_SIZE 1073741824 // = 1G =  1024*1024*1024
+//#define MEM_SIZE 16777216 // = 16M = 16*1024*1024
+
+#define WORD_LEN 4
+
+struct processor {
+  uint32_t main;
+  uint32_t flipping;
+  uint32_t reg[128];
+};
+
+struct objective {
+  uint32_t target;
+  uint32_t len;
+  uint32_t progress;
+  char data[];
+};
+
+extern char (*memory)[];
+extern struct processor (*procs)[];
+extern struct objective (*objs)[];
+
+extern int procs_len;
+extern int objs_len;
+extern uint32_t mem_size;
+
+enum action {
+  ACT_GET,
+  ACT_PUT,
+};
+
+enum register_ {
+  // ===== True registers: =====
+
+  // (no enums provided for general purpose registers, except final one)
+  REG_MAX_GP = 114, // "Maximum general purpose register"
+
+  REG_OP, // "(other) operand"
+  REG_PC,  // Program Counter
+  REG_MAR, // Memory Address Register
+
+  // ===== Pseudo-registers: =====
+  // Writable:
+  REG_MDR, // Memory Data Register
+
+  // Read only, ALU results:
+  REG_ADD,
+  REG_AND,
+  REG_OR,
+  REG_XOR,
+  REG_NOT,
+  REG_ROT,  // "rotate" (left)
+  REG_NORM, // "normalised", i.e. x ? 1 : 0
+
+  // Read only, constant:
+  REG_ZERO,
+  REG_ONE,
+
+  // =====
+  REG_TOTAL,
+};
+
+_Static_assert(REG_TOTAL == 128);
