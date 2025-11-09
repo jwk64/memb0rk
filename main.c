@@ -192,12 +192,12 @@ int main(int argc, char *argv[]) {
     else if ((j -= procs_len) < objs_len) {
       // alloc src j
 
-      (*objs)[i].src = cursor;
+      (*objs)[j].src = cursor;
       
       // generating random source data:
       for (int k=0; k<data_size; k++) {
         (*memory)[cursor % mem_size]
-          = (*objs)[i].data[k]
+          = (*objs)[j].data[k]
           = rand();
         cursor++;
       }

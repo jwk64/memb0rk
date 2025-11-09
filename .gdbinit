@@ -28,8 +28,21 @@ define memdump
   end
 end
 
-document memdump
-Usage: memdump i [n] [z|t|c]
+define mbnext
+  if $argc == 0
+    continue
+  end
+  if $argc > 0
+    continue $arg0
+  end
+  proc_summary
 end
-  
+
 start
+
+
+# Needs tidying, but useful:
+
+alias psrc = p (*objs)[0].data
+
+alias ptgt = memdump/s ((*objs)[0].target) 100

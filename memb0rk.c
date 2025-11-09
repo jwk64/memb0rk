@@ -24,7 +24,7 @@ static uint32_t mem_read(uint32_t address) {
 // (Not used during game, see mem_wrip)
 void mem_write(uint32_t address, uint32_t value) {
   for (int i=0; i<WORD_LEN; i++)
-    (*memory)[(address + i) % mem_size] = value << ((WORD_LEN - 1 - i) * 8);
+    (*memory)[(address + i) % mem_size] = value >> ((WORD_LEN - 1 - i) * 8);
 }
 
 //  I.e. "write-flip"

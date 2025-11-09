@@ -15,3 +15,6 @@ main.o: main.c
 
 memb0rk: memb0rk.o main.o
 	gcc ${gcc_args} -o memb0rk main.o memb0rk.o
+
+clean:
+	rm memb0rk *.o

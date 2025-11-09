@@ -1,22 +1,38 @@
 
 # A simple memb0rk player - just copies from source to dest
 
-
 # Load args to registers:
 
   pc >op    # Get initial PC + 1
   zero not  # -1
-  add       # initial PC
-  add >g13  # initial PC -1: "len"
-  add >g12  # initial PC -2: "src"
-  add >g11  # initial PC -3: "dst"
+  add >g5   # initial PC
 
-# Construct 16, will be used later:
+  zero not  # -1
+  >op add   # -2
+  >op add   # -4
+  >op
+  g5        # Ready now to decrement initial PC by 4 repeatedly
+
+  add >g13  # initial PC -4: "lenp"
+  add >g12  # initial PC -8: "srcp"
+  add >g11  # initial PC -12: "dstp"
+
+# Deference to get values:
+  g11 >mar mdr >g11   # "dst"
+  g12 >mar mdr >g12   # "src"
+  g13 >mar mdr >g13   # "len"
+
+# Construct 35, will be used later:
   one >op   # 1, 1
   rot       # 2
   rot       # 4
   rot       # 8
-  rot >g101 # 16
+  rot       # 16
+  rot       # 32
+  add       # 33
+  add       # 34
+  add       # 35
+  >g101
 
 # Loop beginning, record PC:
   pc >g100
@@ -32,25 +48,26 @@
   g77 >mdr
 
 # Increment src and dst, decrement len:
-  zero not >op  # -1
+  one >op
   g12 add >g12
   g11 add >g11
 
-  one >op
+  zero not >op  # -1
   g13 add >g13
 
 # If len > 0, repeat:
 
+  zero not >op  # -1
   g13
   norm
-  not  >op      # len ? 000 : 111
+  add  >op      # len == 0 ? 111 : 000
   g101 and >op  # and with g101
   g100
   add           # add to g100
-
-  g100 >pc
+  >pc
 
 # Finished - go into infinite loop
+  # 35
   zero zero # placeholders to get difference up to 16, more
             # convenient number to create
   pc >pc
