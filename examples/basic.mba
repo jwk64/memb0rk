@@ -1,0 +1,56 @@
+
+# A simple memb0rk player - just copies from source to dest
+
+
+# Load args to registers:
+
+  pc >op    # Get initial PC + 1
+  zero not  # -1
+  add       # initial PC
+  add >g13  # initial PC -1: "len"
+  add >g12  # initial PC -2: "src"
+  add >g11  # initial PC -3: "dst"
+
+# Construct 16, will be used later:
+  one >op   # 1, 1
+  rot       # 2
+  rot       # 4
+  rot       # 8
+  rot >g101 # 16
+
+# Loop beginning, record PC:
+  pc >g100
+
+# Copy from src to dst:
+
+  # load from g12 (src):
+  g12 >mar
+  mdr >g77
+
+  # store to g11 (dst):
+  g11 >mar
+  g77 >mdr
+
+# Increment src and dst, decrement len:
+  zero not >op  # -1
+  g12 add >g12
+  g11 add >g11
+
+  one >op
+  g13 add >g13
+
+# If len > 0, repeat:
+
+  g13
+  norm
+  not  >op      # len ? 000 : 111
+  g101 and >op  # and with g101
+  g100
+  add           # add to g100
+
+  g100 >pc
+
+# Finished - go into infinite loop
+  zero zero # placeholders to get difference up to 16, more
+            # convenient number to create
+  pc >pc
