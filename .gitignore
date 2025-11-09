@@ -1,3 +1,4 @@
 memb0rk
 *.o
 *.mbx
+.gdb_history

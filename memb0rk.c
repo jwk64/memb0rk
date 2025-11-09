@@ -56,6 +56,8 @@ void processor_step(struct processor *proc) {
   enum action act = inst & 128 ? ACT_PUT : ACT_GET;
   enum register_ reg = inst & 127;
 
+ breakpoint: /* Useful point to set breakpoint in gdb */
+
   proc->reg[REG_PC]++;
 
   if (reg <= REG_MAR) {
