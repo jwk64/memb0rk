@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
 # A rubbish throw-away "assembler" for initial testing
+#
+# Usage: stupid_assembler.py <in-file> <out-file>
+#
+# If "-" is given as in or out file, stdin/stdout is used respectively.
+#
+# TODO: stdout doesn't work because binary mode
 
 enable_debug=False
 
@@ -28,7 +34,7 @@ reg_l = [
 
 reg = { f'g{i}' : i for i in range(115) }
 for i, v in enumerate(reg_l):
-    reg[v] = i
+    reg[v] = i+115
 assert len(reg) == 128
 
 state = 'await get'
@@ -70,13 +76,16 @@ while True:
         elif c.isspace() or c == '#':
             if state == 'read get':
                 s = reg[symbol]
+                n = 1
             elif state == 'read put':
                 s = reg[symbol] | 128
+                n = 1
             elif state == 'read hex':
                 s = int(symbol, 16)
                 debug(f'Hex: {symbol} {s}')
                 assert len(symbol) %2 == 0
-            fout.write(s.to_bytes(len(symbol)//2))
+                n = len(symbol) // 2
+            fout.write(s.to_bytes(n))
     
             symbol = ''
 

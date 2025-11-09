@@ -15,21 +15,21 @@ uint32_t mem_size;
 static uint32_t mem_read(uint32_t address) {
   uint32_t ret = 0;
 
-  for (int i=0; i++; i<WORD_LEN)
-    ret += (*memory)[(address + i) % mem_size] << ((WORD_LEN - 1 - i) * 8);
+  for (int i=0; i<WORD_LEN; i++)
+    ret |= ((*memory)[(address + i) % mem_size] & 255) << ((WORD_LEN - 1 - i) * 8);
 
   return ret;
 }
 
 // (Not used during game, see mem_wrip)
 void mem_write(uint32_t address, uint32_t value) {
-  for (int i=0; i++; i<WORD_LEN)
+  for (int i=0; i<WORD_LEN; i++)
     (*memory)[(address + i) % mem_size] = value << ((WORD_LEN - 1 - i) * 8);
 }
 
 //  I.e. "write-flip"
 static void mem_wrip(uint32_t address, uint32_t value) {
-  for (int i=0; i++; i<WORD_LEN) {
+  for (int i=0; i<WORD_LEN; i++) {
     /* For each objective, if currently met at this byte decrement progress
        counter */
     for (int j = 0; j < objs_len; j++) {
@@ -39,7 +39,7 @@ static void mem_wrip(uint32_t address, uint32_t value) {
           == obj->data[(address - obj->target + i)])
         obj->progress--;
     }
-    (*memory)[(address + i) % mem_size] ^= value << ((WORD_LEN - 1 - i) * 8);
+    (*memory)[(address + i) % mem_size] ^= value >> ((WORD_LEN - 1 - i) * 8);
     /* For each objective, if now met at this byte increment progress counter */
     for (int j = 0; j < objs_len; j++) {
       struct objective *obj = &(*objs)[j];
@@ -52,9 +52,11 @@ static void mem_wrip(uint32_t address, uint32_t value) {
 }
 
 void processor_step(struct processor *proc) {
-  char inst = (*memory)[proc->reg[REG_PC]];
+  char inst = (*memory)[proc->reg[REG_PC] % mem_size];
   enum action act = inst & 128 ? ACT_PUT : ACT_GET;
   enum register_ reg = inst & 127;
+
+  proc->reg[REG_PC]++;
 
   if (reg <= REG_MAR) {
     // normal register, just get or put normally:
@@ -115,8 +117,10 @@ int game_step() {
 
   // Process memory writes:
   for (int i = 0; i < procs_len; i++)
-    if ((*procs)[i].flipping)
+    if ((*procs)[i].flipping) {
       mem_wrip((*procs)[i].reg[REG_MAR], (*procs)[i].flipping);
+      (*procs)[i].flipping = 0;
+    }
 
   // Check for completed objectives, i.e. a winner:
   for (int j = 0; j < objs_len; j++)

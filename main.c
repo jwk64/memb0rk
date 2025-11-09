@@ -178,9 +178,13 @@ int main(int argc, char *argv[]) {
       (*procs)[j].reg[REG_PC] = cursor;
       
       ERR_HANDLE(f = fopen(argv[optind + j], "r"));
-      while (!feof(f)) {
-        (*memory)[cursor % mem_size] = getc(f);
-        cursor++;
+
+      char c = getc(f);;
+      while (!feof(f))
+       {
+         (*memory)[cursor % mem_size] = c;
+         c = getc(f);
+         cursor++;
       }
 
       fclose(f);
@@ -227,7 +231,7 @@ int main(int argc, char *argv[]) {
   printf("Starting game\n");
   int result = game(max_steps);
   printf("Finished game\n");
-
+  
   if (result == -1)
     printf("No winners after %i steps\n", max_steps);
   

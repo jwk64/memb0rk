@@ -1,0 +1,35 @@
+# "hello world" program. Just writes some bytes then goes into infinite loop.
+
+
+# Create some numbers:
+
+# g31 = 4, g30 = 8:
+
+  one >op
+  rot rot >g31     # b100  (== d4)
+  rot >g30         # b1000 (== d8)
+
+# Inline value:
+
+  pc
+  >op
+  g30 # == 7, for relative location of inline value
+  add
+  >mar
+  >op
+
+  g31 # == 4, for jump to after inline value
+  add
+  >pc
+
+  \cafe1234  # inline value, 4 bytes
+
+# Now copy the 4 bytes (== 1 word) to address zero:
+
+  mdr >g77
+  zero >mar
+  g77 >mdr
+
+# Finished - to avoid trouble, start an infinite loop:
+
+  pc >pc
