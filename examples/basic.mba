@@ -22,52 +22,46 @@
   g12 >mar mdr >g12   # "src"
   g13 >mar mdr >g13   # "len"
 
-# Construct 35, will be used later:
-  one >op   # 1, 1
-  rot       # 2
-  rot       # 4
-  rot       # 8
-  rot       # 16
-  rot       # 32
-  add       # 33
-  add       # 34
-  add       # 35
-  >g101
+# Outer loop beginning -- copy original dst, src, len to working registers:
+  pc >g101
+  g11 >g21
+  g12 >g22
+  g13 >g23
 
-# Loop beginning, record PC:
+# Inner loop beginning -- do memcpy:
   pc >g100
 
 # Copy from src to dst:
 
-  # load from g12 (src):
-  g12 >mar
+  # load from g22 (src):
+  g22 >mar
   mdr >g77
 
-  # store to g11 (dst):
-  g11 >mar
+  # store to g21 (dst):
+  g21 >mar
   g77 >mdr
 
 # Increment src and dst, decrement len:
   one >op
-  g12 add >g12
-  g11 add >g11
+  g22 add >g22
+  g21 add >g21
 
   zero not >op  # -1
-  g13 add >g13
+  g23 add >g23
 
 # If len > 0, repeat:
 
+  # Select from g100, g101 based on g23 == 0:
   zero not >op  # -1
-  g13
+  g23
   norm
   add  >op      # len == 0 ? 111 : 000
-  g101 and >op  # and with g101
-  g100
-  add           # add to g100
+  g101 and >g111 # and with g101
+  op not >op    # len == 0 ? 000 : 111
+  g100 and >op
+  g111
+  add
   >pc
 
-# Finished - go into infinite loop
-  # 35
-  zero zero # placeholders to get difference up to 16, more
-            # convenient number to create
+# This should never be reached. Just in case, to help debugging, infinite loop:
   pc >pc
