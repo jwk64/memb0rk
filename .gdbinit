@@ -21,10 +21,10 @@ end
 
 define memdump
   if $argc == 3
-    print $arg0 (char[$arg2])(*memory)[$arg1 % mem_size]
+    print $arg0 (char[$arg2])memory[$arg1 % MEM_SIZE]
   end
   if $argc == 2
-    print/x (char[$arg1])(*memory)[$arg0 % mem_size]
+    print/x (char[$arg1])memory[$arg0 % MEM_SIZE]
   end
 end
 

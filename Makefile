@@ -1,6 +1,6 @@
 
 gcc_args       = -Wextra -Werror -g
-gcc_debug_args = -fsanitize=address -DDEBUG
+gcc_debug_args = -fsanitize=address -DDEBUG -O0 -ggdb3
 
 ifeq (${debug},true)
 	gcc_args := ${gcc_args} ${gcc_debug_args}
