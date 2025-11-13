@@ -1,34 +1,65 @@
 # "hello world" program. Just writes some bytes then goes into infinite loop.
 
+# Status: working
 
 # Create some numbers:
 
 # g31 = 4, g30 = 8:
 
   one >op
-  rot rot >g31     # b100  (== d4)
-  rot >g30         # b1000 (== d8)
+  rot rot >g35     # bin  100 == dec 4
+  rot >g30         # bin 1000 == dec 8
+  >op g35 or >g31  # bin 1100 == dec 12
 
 # Inline value:
 
   pc
   >op
-  g30 # == 7, for relative location of inline value
+  g30 # == 8, for relative location of inline value
   add
   >mar
   >op
 
-  g31 # == 4, for jump to after inline value
+  g31 # == 12, for jump to after inline value
   add
   >pc
 
-  \cafe1234  # inline value, 4 bytes
+  \68656c6c6f20776f726c6421 # "hello world!" (12 bytes)
 
-# Now copy the 4 bytes (== 1 word) to address zero:
+# Now copy the 12 bytes (== 3 word) to address zero:
 
+  mar  >g51
+  zero >g52
+
+# First word: 
+  g51 >mar
   mdr >g77
-  zero >mar
+  g52 >mar
   g77 >mdr
+
+  g35 >op
+  g51 add >g51
+  g52 add >g52
+
+# Second word: 
+  g51 >mar
+  mdr >g77
+  g52 >mar
+  g77 >mdr
+
+  g35 >op
+  g51 add >g51
+  g52 add >g52
+
+# Third word: 
+  g51 >mar
+  mdr >g77
+  g52 >mar
+  g77 >mdr
+
+  g35 >op
+  g51 add >g51
+  g52 add >g52
 
 # Finished - to avoid trouble, start an infinite loop:
 

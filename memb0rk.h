@@ -1,8 +1,7 @@
 #include <stdint.h>
 
-//#define MEM_SIZE 1073741824 // = 1G =  1024*1024*1024
-//#define MEM_SIZE 16777216 // = 16M = 16*1024*1024
-
+#define MEM_SIZE 16777216 // = 16M = 16*1024*1024
+#define TGT_SIZE 1024
 #define WORD_LEN 4
 
 struct processor {
@@ -12,23 +11,19 @@ struct processor {
 };
 
 struct objective {
-  uint32_t target;
   uint32_t src;
-  uint32_t len;
   uint32_t progress;
-  char data[];
 };
 
-extern char (*memory)[];
+extern char memory[MEM_SIZE];
 extern struct processor (*procs)[];
 extern struct objective (*objs)[];
+extern char (*targets)[][TGT_SIZE];
 
 extern int procs_len;
 extern int objs_len;
-extern uint32_t mem_size;
 
 extern void mem_write(uint32_t address, uint32_t value);
-extern int game_step();
 extern int game(long long max_steps);
 
 

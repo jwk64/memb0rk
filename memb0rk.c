@@ -4,19 +4,19 @@
 #include <unistd.h>
 #include <time.h>
 
-char (*memory)[];
+char memory[MEM_SIZE];
 struct processor (*procs)[];
 struct objective (*objs)[];
+char (*targets)[][TGT_SIZE];
 
 int procs_len;
 int objs_len;
-uint32_t mem_size;
 
 static uint32_t mem_read(uint32_t address) {
   uint32_t ret = 0;
 
   for (int i=0; i<WORD_LEN; i++)
-    ret |= ((*memory)[(address + i) % mem_size] & 255) << ((WORD_LEN - 1 - i) * 8);
+    ret |= (memory[(address + i) % MEM_SIZE] & 255) << ((WORD_LEN - 1 - i) * 8);
 
   return ret;
 }
@@ -24,7 +24,7 @@ static uint32_t mem_read(uint32_t address) {
 // (Not used during game, see mem_wrip)
 void mem_write(uint32_t address, uint32_t value) {
   for (int i=0; i<WORD_LEN; i++)
-    (*memory)[(address + i) % mem_size] = value >> ((WORD_LEN - 1 - i) * 8);
+    memory[(address + i) % MEM_SIZE] = value >> ((WORD_LEN - 1 - i) * 8);
 }
 
 //  I.e. "write-flip"
@@ -33,26 +33,24 @@ static void mem_wrip(uint32_t address, uint32_t value) {
     /* For each objective, if currently met at this byte decrement progress
        counter */
     for (int j = 0; j < objs_len; j++) {
-      struct objective *obj = &(*objs)[j];
-      if ((address - obj->target + i) % mem_size < obj->len
-          && (*memory)[(address + i) % mem_size]
-          == obj->data[(address - obj->target + i)])
-        obj->progress--;
+      if ((address + i) % MEM_SIZE < TGT_SIZE
+          && memory[(address + i) % MEM_SIZE]
+          == (*targets)[j][(address + i)])
+        (*objs)[j].progress--;
     }
-    (*memory)[(address + i) % mem_size] ^= value >> ((WORD_LEN - 1 - i) * 8);
+    memory[(address + i) % MEM_SIZE] ^= value >> ((WORD_LEN - 1 - i) * 8);
     /* For each objective, if now met at this byte increment progress counter */
     for (int j = 0; j < objs_len; j++) {
-      struct objective *obj = &(*objs)[j];
-      if ((address - obj->target + i) % mem_size < obj->len
-          && (*memory)[(address + i) % mem_size]
-          == obj->data[(address - obj->target + i)])
-        obj->progress++;
+      if ((address + i) % MEM_SIZE < TGT_SIZE
+          && memory[(address + i) % MEM_SIZE]
+          == (*targets)[j][(address + i)])
+        (*objs)[j].progress++;
     }
   }
 }
 
-void processor_step(struct processor *proc) {
-  char inst = (*memory)[proc->reg[REG_PC] % mem_size];
+static void processor_step(struct processor *proc) {
+  char inst = memory[proc->reg[REG_PC] % MEM_SIZE];
   enum action act = inst & 128 ? ACT_PUT : ACT_GET;
   enum register_ reg = inst & 127;
 
@@ -113,7 +111,7 @@ void processor_step(struct processor *proc) {
 }
 
 // Returns index in *objs of winner, or -1 if no winner yet
-int game_step() {
+static int game_step() {
   for (int i = 0; i < procs_len; i++)
     processor_step(&(*procs)[i]);
 
@@ -126,7 +124,7 @@ int game_step() {
 
   // Check for completed objectives, i.e. a winner:
   for (int j = 0; j < objs_len; j++)
-    if ((*objs)[j].progress == (*objs)[j].len)
+    if ((*objs)[j].progress == TGT_SIZE)
       /* objective j acheived. We assume that objectives are contradictory, so
          no others will be acheived, so we return j. */
       return j;

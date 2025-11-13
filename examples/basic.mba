@@ -1,6 +1,8 @@
 
 # A simple memb0rk player - just copies from source to dest
 
+# Status: working
+
 # Load args to registers:
 
   pc >op    # Get initial PC + 1
@@ -11,16 +13,19 @@
   >op add   # -2
   >op add   # -4
   >op
-  g5        # Ready now to decrement initial PC by 4 repeatedly
+  g5        # Ready now to decrement initial PC by 4
 
-  add >g13  # initial PC -4: "lenp"
   add >g12  # initial PC -8: "srcp"
-  add >g11  # initial PC -12: "dstp"
 
-# Deference to get values:
-  g11 >mar mdr >g11   # "dst"
+# Deference to get value:
   g12 >mar mdr >g12   # "src"
-  g13 >mar mdr >g13   # "len"
+
+  zero >g11           # "dst"
+
+  # Construct 1024 as len:
+  one >op # 1
+  rot rot rot rot rot rot rot rot rot rot  # shift 10 times, 2^10 = 1024
+  >g13
 
 # Outer loop beginning -- copy original dst, src, len to working registers:
   pc >g101
