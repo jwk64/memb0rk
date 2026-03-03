@@ -1,0 +1,62 @@
+# Same as ./hello-world.mba, but using new racket-based assembler
+
+# Status: broken
+
+$(rename wlen)
+$(rename msg_rel)
+$(rename msg_len)
+
+$(define main (parse {
+# Inline value:
+
+  pc
+$(define start here)
+  >op
+  $msg_rel
+  add
+  >mar
+  >op
+
+  $msg_len
+  add
+  >pc
+
+$(define message here)
+  $(string {hello world!}) # (12 bytes)
+
+# Now copy the 12 bytes (== 3 word) to address zero:
+
+$(define continue here)
+  $(rename src)
+  $(rename dst)
+  $(rename swap)
+
+  mar  >$src
+  zero >$dst
+
+  $(define copy_word (parse {
+  $src >mar
+  mdr >
+  $dst >mar
+  $swap >mdr
+
+  $wlen >op
+  $src add >$src
+  $dst add >$dst
+  }))
+
+  $(repeat (divide msg_len wlen) copy_word)
+
+# Finished - to avoid trouble, start an infinite loop:
+
+  pc >pc
+}))
+
+
+# Create some numbers:
+
+  $(construct 4) >$wlen
+  $(construct (- message start)) >$msg_rel
+  $(construct (- continue message)) >$msg_len
+
+$main
