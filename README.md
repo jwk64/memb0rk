@@ -2,15 +2,16 @@
 
 A game of adversarial programming -- like battleships, but computers.
 
+## Quick Start
+
+- Try `./demo.sh`
+
 ## Summary
 
 A single memory address space shared by N processors (= "number of players"). At the beginning of
 the game, each player's program is loaded to a random location in memory, with one of the processors
 "pointing to" (i.e. `PC=`) it. Each player's program has a task to complete. The first program to
 complete its task wins.
-
-The players' tasks may be in direct conflict with each other -- e.g. a memcpy of different data to
-the same location.
 
 The objective is a memcpy, and taking inspiration from actual C memcpy, the program is provided
 arguments dest, src, n. These are loaded immediately before the program, in that order.
@@ -26,105 +27,139 @@ programs to determine a win/loss/draw rate.
 
 ## ISA
 
-### Requirements
-
-- No "halt" instruction -- too easy
-- No crashing on invalid instructions -- unrecognised instructions are treated as no-op. `Goto <out
-  of range>` should be valid -- mod is the obvious solution.
-- Deterministic execution -- the only randomness in games is in the initial state
-- Fair, i.e. no processor has any sort of "priority". Consider write collision, i.e. both processors
-  try to write different value simultaneously to the same address. The most cool option would be
-  that there is no "set" instruction, only "bitwise flip". To "set" (and the assembler should have a
-  macro for this), one should first read, then XOR with the intended value to set, then bitwise flip
-  the result to the address. Seems like the most elegant option.
-- There should be a standard way to pass parameters to programs.
-- The ISA should not be tied to a particular total memory size, perhaps not even to a word size.
-
-### Brain-storming
+### Specification
 
 #### Registers
 
-- "Main": a. Get and put instructions get to / put from this.
-- "Secondary Argument": b
-- "Program Counter": pc. Always holds the value of the NEXT location to be loaded/executed.
-- Arithmetic result registers: add, and, or, not, xor, rshift, lshift, fill. Always holds the value of the computation result.
-- "Address": addr
-- "Value at addresss": val. Holds the value in memory at location addr (mod max address).
-- "Constants": zero, one
-- "General Purpose": r1, r2, ..., rN
+- "Main" (`main`): Get and put instructions get to / put from this.
+- "Secondary Argument" (`op`)
+- "Program Counter" (`pc`): Always holds the value of the NEXT location to be loaded/executed.
+- Arithmetic result registers (`add`, `and`, `or`, `xor`, `not`, `rot`, `norm`): Always
+  hold the value of the result.
+- "Memory address" (`mar`)
+- "Value at addresss": (`mdr`): Holds the value in memory at location addr (mod max address).
+- "Constants" (`zero`, `one`)
+- "General Purpose": (`g0`, `g1`, ..., `g114`)
 
 #### Instructions
 
-- `put <reg>` -- copy value of y to reg. Technically we actually do: `<reg> ^= <reg> ^ a`. This is
-  almost always equivalent, except in the case of write collisions to val, where this rule ensures
-  fairness, as `a^b = b^a`
-- `get <reg>` -- copy value of reg to y
+Each instruction is 1 byte, made up of an "action" (1 bit) and a register (7 bits). The "action" is
+either "get" (0) or "put" (1), which do the following:
 
-#### Macros
+- Put: copy the value of `main` to the specified register. At least that's usually what it does --
+  technically the actually behaviour is: `R ^= R^Main`. This is almost always equivalent, except in
+  the case of write collisions to `mdr`, where this rule ensures fairness, as `a^b = b^a`. If R is
+  read-only (e.g. `add`, `zero` etc.), then this is a no-op.
+- Get: copy the value from the specified register to `main`.
 
-- `INST >REG  =  INST; put REG` 
-- `write <rval> <raddr> =  get <raddr> >x1; read >x2; get <rval> >x1; xor >x2; get <raddr> >x1; wrip`
-- `negative-x2  =  zero >x1; not >x1; xor >x2; one >x1; add`
-- `negative  =  get x1 >x2; negative-x2`
-- `subtract    =  get x1 >rA; negative-x2 >x2; get rA >x1; add`
-- `two  =  one >x1; lshift`, four, eight, etc. (note these do not write to x2)
-- `twenty-three = seven >x2; sixteen >x1; add`, etc. (works only in this order, power of two last,
-  to avoid recursive macros writing over registers
-- `seven >rA; `
+## Implementation
+
+- `memb0rk.[ch]` implements the actual machine emulator
+- Different front-ends could be devised. For example, a graphical one, where the destination of the
+  memcpy is taken as representing a "screen", to which players are then fighting to draw different
+  images. Alternatively, an ncurses/TUI front-end, where the memcpy'd data represents text. The game
+  would be shown "live" in these examples.
+- `main.c` provides a simple front-end (nothing shown live, just a winner declared at the end)
+- Build with `make ./memb0rk`
+- Run with `./memb0rk`
+- `./gdb-memb0rk.sh` takes the exact same arguments as `./memb0rk`, but wrapped by gdb, with some
+  helpful aliases defined in `./gdbinit`. Use `select_proc <N>` to select a "processor"
+  (i.e. player) of interest, then `continue` single steps on that processor, and `proc_summary`
+  prints information on that processor etc.
+- `stupid_assembler.py` provides an extremely basic assembler for writing memb0rk programs. See
+  examples in ./examples.
+- `assembler.rkt` (and `examples/hello-world-2.mba`) is the beginning of a better assembler written
+  in racket.
+
+## Assembly
+
+- `R` (where R is a register name): get from R
+- `>R` (where R is a register name): put to R
+- `#` begins a comment
+- `\1234abcd` bytes given literally as hex
+- No requirement for instructions to be on separate lines. Just separated by whitespace.
+
+### Examples (/macros?)
 
 ```
-[invert]
-get not
-put b
-get one
-get add
+NEGATIVE:
+# Make value of main negaitve, i.e. main = -main:
+  not >op         # op = ~main
+  one add         # main = op + 1
 
-[subtract (1, 2)]
-get $1
-.invert
-put b
-get $2
-get add
+SUBTRACT(X, Y):
+  X NEGATIVE >op    # op = -X
+  Y add           # main = op + Y
 
-# shorthand: "get" omitted, ">" instead of "put", and this may append to previous line.
+IS_NEGATIVE:
+# Check if main is "negative" (i.e. most significant bit is set)
+  >g0          # g0 = main
+  one          # main = 1
+  g0 rot >op   # op = (g0 << 1) | (g0 >> 7)    <-- rotate left by 1
+  one and      # main = op & 1
+  norm         # main = main ? 1 : 0
 
-[is_negative]
-lrot >b
-one
-and
-fill
+BRANCH(COND, THEN, ELSE):
+  zero not >op   # op = -1
+  COND norm      # main = COND ? 1 : 0
+  add not >op    # op = ~(main -1)       <-- i.e. COND ? 0xff : 0
+  THEN and >g0   # g0 = op & THEN
+  op not >op     # op = ~op              <-- i.e. COND ? 0 : 0xff
+  ELSE and >op   # op = op & ELSE
+  g0 or >pc      # pc = op | g0
 
-[branch (cond, then, else, tmp)]
-cond >b
-$then
-and >$tmp
-b
-not >b
-$else
-and >b
-$tmp
-or >pc
+INLINE_CONSTANT (CONST):
+  N >op         # where N = 5 + number of instructions to write m ({one; lrot; lrot} = 3 -> m=8)
+  pc
+  add >addr
+  m >b  # m is word length
+  add >pc
+  $const
+  mdr
 
-[inline_constant (const)]
-n >b  # n is 5 + number of instructions to write m ({one; lrot; lrot} = 3 -> m=8)
-pc
-add >addr
-m >b  # m is word length
-add >pc
-$const
-val
+TWO:
+# (for four, eight etc. just add more rots)
+  one >op  # op = 1
+  rot      # op = 1 << 1
 
-[loop (cond, len)]
-get pc
->$start
-(body)
-...
-... # populate $cond
-.inline_constant (N)
->b
-pc
-add >$end
-.branch $cond $start $end $start
+TWENTY_THREE:
+# (for example)
+  SEVEN >g0
+  SIXTEEN >g1   # the power of two must come last, as this does not use g0
+  add
+
+INLINE_CONSTANT(CONST):
+  EIGHT >g0   # for relative location of inline value
+  N >g1       # where N is the length of the inline constant
+  pc
+  >op         # (0) op = pc. Will number instructions relative to here from now.
+              #     Note that pc points to the NEXT instruction, so it held a
+              #     pointer to the ">op" when read.
+  g0          # (1)
+  add         # (2)
+  >mar        # (3)
+  >op         # (4) op = mar = op + 8   <-- i.e. pointer to inline value ahead
+
+  g1          # (5)
+  add         # (6)
+  >pc         # (7) pc = op + N   <-- i.e. jump to 8+N
+
+  \1234abcd   # (8) inline value
+
+  mdr         # (8+N) main = mdr
 
 
+LOOP:
+  pc >g0                   # g0 = here
+
+  # (body)
+  # ...
+  # ...
+  # >g2                    # set g2 to true to continue, false to end loop
+
+  INLINE_CONSTANT(N) >op
+  pc add >g2               # g2 = here + N
+  BRANCH(g1, g0, g2)
+
+  # N just needs to be large enough to point somewhere beyond end of BRANCH code
 ```

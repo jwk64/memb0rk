@@ -11,7 +11,7 @@
 static uint32_t rand32() {
   uint32_t ret = 0;
 
-  // rand() is only guarunteed to generate numbers up to 2^15.
+  // rand() is only guaranteed to have uniform distribution up to 2^15.
 
   for (int i=0; i<4; i++)
     ret |= (rand() & 255) << (8*i);
@@ -43,7 +43,7 @@ static int (*rand_permutation(int n))[] {
     (*ret)[i] = (*ret)[j];
     swap = (*ret)[j] = swap;
   }
-  
+
   return ret;
 }
 
@@ -53,10 +53,10 @@ int main(int argc, char *argv[]) {
   int rand_seed = time(NULL);
 
   // Parse options:
-  while((opt = getopt(argc, argv, ":hm:t:d:s:")) != -1) {
+  while((opt = getopt(argc, argv, ":ht:d:s:")) != -1) {
     switch(opt) {
     case 'h':
-      printf("helpe texte ;)\n");
+      printf("memb0rk [-h] [-t TEAM_SIZE] [-s RAND_SEED] prog1 prog2 ...\n");
       return 0;
     case 't':
       printf("team size: %s\n", optarg);
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
       cursor += 1 * WORD_LEN; // space for argument
 
       (*procs)[j].reg[REG_PC] = cursor;
-      
+
       ERR_HANDLE(f = fopen(argv[optind + j], "r"));
 
       char c = getc(f);;
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
       // alloc src j
 
       (*objs)[j].src = cursor;
-      
+
       // generating random source data:
       for (int k=0; k<TGT_SIZE; k++) {
         memory[cursor % MEM_SIZE]
@@ -204,12 +204,12 @@ int main(int argc, char *argv[]) {
   printf("Starting game\n");
   int result = game(max_steps);
   printf("Finished game\n");
-  
+
   if (result == -1) {
     printf("No winners after %i steps\n", max_steps);
     printf("Mem beginning: %s\n", memory); // TODO: this, but as hex?
   }
-  
+
   else for (int i = 0; i < team_size; i++)
     printf("Winner: %s\n", argv[optind + result * team_size + i]);
 }

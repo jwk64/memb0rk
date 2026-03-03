@@ -1,6 +1,8 @@
 #include <stdint.h>
 
-#define MEM_SIZE 16777216 // = 16M = 16*1024*1024
+/* Total memory size: */
+#define MEM_SIZE (16 * 1024 * 1024) // = 16M
+/* Size of memcpy target for each player: */
 #define TGT_SIZE 1024
 #define WORD_LEN 4
 
@@ -25,7 +27,6 @@ extern int objs_len;
 
 extern void mem_write(uint32_t address, uint32_t value);
 extern int game(long long max_steps);
-
 
 enum action {
   ACT_GET,
